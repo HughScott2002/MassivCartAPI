@@ -1,4 +1,5 @@
 import { createClient, type RedisClientType } from "redis";
+import { logError, logInfo, logWarn } from "./logger.js";
 
 let redisClient: RedisClientType | null = null;
 let redisConnectPromise: Promise<void> | null = null;
@@ -24,15 +25,15 @@ function getClient(): RedisClientType {
   });
 
   redisClient.on("error", (error) => {
-    console.error("Redis error", error);
+    logError("Redis client error", error, { url: getRedisUrl() });
   });
 
   redisClient.on("reconnecting", () => {
-    console.warn("Redis reconnecting");
+    logWarn("Redis reconnecting", { url: getRedisUrl() });
   });
 
   redisClient.on("ready", () => {
-    console.log("Redis ready");
+    logInfo("Redis ready", { url: getRedisUrl() });
   });
 
   return redisClient;
@@ -67,6 +68,7 @@ export async function disconnectRedis(): Promise<void> {
   }
 
   await redisClient.quit();
+  logInfo("Redis disconnected");
 }
 
 export async function getCachedJson<T>(key: string): Promise<T | null> {

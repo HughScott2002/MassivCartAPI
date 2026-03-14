@@ -1,6 +1,7 @@
 import "dotenv/config";
 import app from "./app.js";
 import { connectRedis, disconnectRedis, isRedisReady } from "./redis.js";
+import { logError, logInfo, logWarn } from "./logger.js";
 
 const port = Number(process.env.PORT) || 3000;
 
@@ -8,15 +9,21 @@ async function startServer() {
   try {
     await connectRedis();
   } catch (error) {
-    console.warn("Redis unavailable, continuing without cache", error);
+    logWarn("Redis unavailable, continuing without cache", {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 
   const server = app.listen(port, () => {
-    console.log(`API running on http://localhost:${port}`);
-    console.log(`Redis cache ${isRedisReady() ? "enabled" : "disabled"}`);
+    logInfo("API server started", {
+      port,
+      url: `http://localhost:${port}`,
+      redisCache: isRedisReady() ? "enabled" : "disabled",
+    });
   });
 
   const shutdown = async () => {
+    logInfo("Shutdown signal received");
     server.close(async () => {
       try {
         await disconnectRedis();
@@ -29,5 +36,14 @@ async function startServer() {
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 }
+
+process.on("uncaughtException", (error) => {
+  logError("Uncaught exception", error);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  logError("Unhandled promise rejection", reason);
+});
 
 void startServer();

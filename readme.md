@@ -44,3 +44,21 @@ Redis is now wired into the API for response caching.
 - `GET /products?limit=25&category=produce` fetches product data from Supabase and caches the response in Redis
 
 When Redis is unavailable, the API still runs and simply skips caching.
+
+## Endpoint test script
+
+With the Docker containers running, execute:
+
+```bash
+bash scripts/test-endpoints.sh
+```
+
+The script tests the current API endpoints against `http://localhost:3000` by default and writes results to `test-results/endpoint-test-results.txt`.
+
+You can override both values:
+
+```bash
+TEST_BASE_URL=http://localhost:4000 TEST_OUTPUT_FILE=test-results/local.txt bash scripts/test-endpoints.sh
+```
+
+If you prefer, `npm run test:endpoints` now just invokes the same Bash script.
