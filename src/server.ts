@@ -1,7 +1,7 @@
 import "dotenv/config";
 import app from "./app.js";
-import { connectRedis, disconnectRedis, isRedisReady } from "./redis.js";
-import { logError, logInfo, logWarn } from "./logger.js";
+import { connectRedis, disconnectRedis, isRedisReady } from "./db/redis.js";
+import { logError, logInfo, logWarn } from "./utils/logger.js";
 
 const port = Number(process.env.PORT) || 3000;
 

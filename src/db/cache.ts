@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { getOrSetCachedJson } from "./redis.js";
+import { deleteCached, getOrSetCachedJson } from "./redis.js";
 
 const DEFAULT_CACHE_TTL_SECONDS = Number(process.env.REDIS_TTL_SECONDS || 300);
 
@@ -25,4 +25,8 @@ export async function withCache<T>(
     key,
     ttlSeconds,
   };
+}
+
+export async function cacheDelete(key: string): Promise<void> {
+  await deleteCached(key);
 }

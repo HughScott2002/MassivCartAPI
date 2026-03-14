@@ -1,5 +1,5 @@
 import { createClient, type RedisClientType } from "redis";
-import { logError, logInfo, logWarn } from "./logger.js";
+import { logError, logInfo, logWarn } from "../utils/logger.js";
 
 let redisClient: RedisClientType | null = null;
 let redisConnectPromise: Promise<void> | null = null;
@@ -22,6 +22,9 @@ function getClient(): RedisClientType {
 
   redisClient = createClient({
     url: getRedisUrl(),
+    socket: {
+      reconnectStrategy: false,
+    },
   });
 
   redisClient.on("error", (error) => {
@@ -100,6 +103,15 @@ export async function setCachedJson<T>(
   await client.set(key, JSON.stringify(value), {
     EX: ttlSeconds,
   });
+}
+
+export async function deleteCached(key: string): Promise<void> {
+  if (!isRedisReady()) {
+    return;
+  }
+
+  const client = getClient();
+  await client.del(key);
 }
 
 export async function getOrSetCachedJson<T>(
