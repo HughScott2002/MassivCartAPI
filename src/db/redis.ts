@@ -1,5 +1,5 @@
 import { createClient, type RedisClientType } from "redis";
-import { logError, logInfo, logWarn } from "./logger.js";
+import { logError, logInfo, logWarn } from "../utils/logger.js";
 
 let redisClient: RedisClientType | null = null;
 let redisConnectPromise: Promise<void> | null = null;
