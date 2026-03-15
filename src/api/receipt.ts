@@ -1,4 +1,8 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
+import {
+  cacheDelete,
+  invalidateDashboardPriceCaches,
+} from "../lib/cache.js";
 import { OCRFactory } from "../ocr/index.js";
 import { normalizeMediaType } from "../ocr/claude-ocr.js";
 import type { OCRUpload } from "../ocr/types.js";
@@ -7,6 +11,18 @@ import { logError, logInfo } from "../utils/logger.js";
 const router = Router();
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const KNOWN_TYPES = ["receipt", "prescription", "gas_price", "shopping_list"];
+
+function getRequestUserId(req: Request): string | null {
+  const headerValue = req.headers["x-user-id"];
+  const userId =
+    typeof headerValue === "string"
+      ? headerValue.trim()
+      : Array.isArray(headerValue)
+        ? headerValue[0]?.trim()
+        : "";
+
+  return userId || null;
+}
 
 async function readRequestBody(req: NodeJS.ReadableStream): Promise<Buffer> {
   const chunks: Buffer[] = [];
@@ -142,6 +158,13 @@ router.post("/api/receipt", async (req, res) => {
       store: receiptData.store ?? null,
       total: receiptData.total ?? null,
     });
+
+    const userId = getRequestUserId(req);
+    if (userId) {
+      await cacheDelete(`dashboard:user:${userId}`);
+    }
+    await invalidateDashboardPriceCaches();
+
     res.status(200).json(receiptData);
   } catch (error) {
     if (error instanceof Error && error.message === "Uploaded image exceeds 5 MB limit") {

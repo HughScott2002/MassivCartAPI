@@ -1,11 +1,11 @@
 import express from "express";
 import cors from "cors";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { z } from "zod";
-import { isRedisReady } from "./db/redis.js";
 import { logError, logInfo, logWarn } from "./utils/logger.js";
 import searchRouter from "./api/search.js";
 import commandRouter from "./api/command.js";
+import dashboardRouter from "./api/dashboard.js";
 import receiptRouter from "./api/receipt.js";
 
 const app = express();
@@ -14,7 +14,8 @@ const claudeRateLimit = rateLimit({
   windowMs: 60_000,
   max: 10,
   keyGenerator: (req) =>
-    (req.headers["x-user-id"] as string) || req.ip || "anon",
+    (req.headers["x-user-id"] as string) ||
+    (req.ip ? ipKeyGenerator(req.ip) : "anon"),
   standardHeaders: true,
   legacyHeaders: false,
   message: { ok: false, error: "Rate limit exceeded — try again in a minute" },
@@ -42,13 +43,11 @@ app.get("/health", (_req, res) => {
   res.status(200).json({
     ok: true,
     message: "Server is running",
-    services: {
-      redis: isRedisReady() ? "up" : "down",
-    },
   });
 });
 
 app.use(searchRouter);
+app.use(dashboardRouter);
 app.use("/api/command", claudeRateLimit);
 app.use("/api/receipt", claudeRateLimit);
 app.use(commandRouter);

@@ -7,6 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "test": "node --import tsx --test tests/**/*.test.ts",
     "test:endpoints": "bash scripts/test-endpoints.sh"
   },
   "repository": {
@@ -23,12 +24,11 @@
   "homepage": "https://github.com/HughScott2002/MassivCartAPI#readme",
   "dependencies": {
     "@supabase/supabase-js": "^2.99.1",
-    "bullmq": "^5.71.0",
+    "@upstash/redis": "^1.37.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.1",
-    "redis": "^5.11.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

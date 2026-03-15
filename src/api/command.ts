@@ -1,13 +1,16 @@
 import { Router } from "express";
 import { z } from "zod";
-import { cacheDelete, withCache } from "../db/cache.js";
+import { getProducts } from "../db/data-access.js";
 import { supabase, supabaseAdmin } from "../db/supabase-client.js";
+import { cacheDelete, cacheGet, cacheSet } from "../lib/cache.js";
+import { getProvider } from "../llm/registry.js";
+import { makeCommandRunner } from "../llm/prompts.js";
 import { performSearch } from "../services/search-service.js";
 import { logError, logInfo } from "../utils/logger.js";
-import { commandQueue, commandQueueEvents } from "../queue/claude-queue.js";
 import type { CommandAction } from "../llm/types.js";
 
 const router = Router();
+const runCommand = makeCommandRunner(getProvider());
 
 const commandBodySchema = z.object({
   message: z.string().trim().min(1),
@@ -41,18 +44,26 @@ router.post("/api/command", async (req, res) => {
   const body = commandBodySchema.parse(req.body);
 
   try {
-    const { data: action } = await withCache<CommandAction>(
+    const cacheKey = [
       "nlp-command",
-      { message: body.message, intent: body.intent, budget: body.budget },
-      async () => {
-        const job = await commandQueue.add("run-command", {
-          message: body.message,
+      body.intent,
+      body.message.trim(),
+      body.budget ?? "",
+    ].join(":");
+    let action = await cacheGet<CommandAction>(cacheKey);
+
+    if (!action) {
+      const products = await getProducts();
+      action = await runCommand(
+        body.message,
+        {
           intent: body.intent,
           budget: body.budget ?? "",
-        });
-        return job.waitUntilFinished(commandQueueEvents, 30_000);
-      },
-    );
+        },
+        products,
+      );
+      await cacheSet(cacheKey, action, 300);
+    }
 
     await persistBudget(action.budget, body.userId);
 
