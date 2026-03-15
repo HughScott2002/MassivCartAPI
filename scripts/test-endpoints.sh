@@ -22,6 +22,7 @@ detect_port() {
 DEFAULT_PORT="$(detect_port)"
 BASE_URL="${TEST_BASE_URL:-http://localhost:$DEFAULT_PORT}"
 OUTPUT_FILE="${TEST_OUTPUT_FILE:-test-results/endpoint-test-results.txt}"
+RECEIPT_IMAGE_PATH="${TEST_RECEIPT_IMAGE:-$PROJECT_ROOT/receipt.jpeg}"
 
 mkdir -p "$(dirname "$OUTPUT_FILE")"
 
@@ -177,6 +178,76 @@ run_post_test() {
   } >> "$OUTPUT_FILE"
 }
 
+run_receipt_test() {
+  local name="$1"
+  local path="$2"
+  local image_path="$3"
+  local expected_status="$4"
+  local expected_body_fragment="$5"
+
+  if [ ! -f "$image_path" ]; then
+    {
+      echo "Test: $name"
+      echo "Path: $path"
+      echo "Method: POST"
+      echo "Passed: skipped"
+      echo "Failure: receipt image not found at $image_path"
+      echo
+    } >> "$OUTPUT_FILE"
+    return
+  fi
+
+  TOTAL_COUNT=$((TOTAL_COUNT + 1))
+
+  local body_file
+  body_file="$(mktemp)"
+
+  local status
+  status="$(curl -sS -o "$body_file" -w "%{http_code}" \
+    -X POST \
+    -F "image=@$image_path" \
+    "$BASE_URL$path")"
+  local curl_exit=$?
+  local body
+  body="$(cat "$body_file")"
+  rm -f "$body_file"
+
+  local passed="false"
+  local failure_reason=""
+
+  if [ "$curl_exit" -ne 0 ]; then
+    failure_reason="curl failed with exit code $curl_exit"
+  elif [ "$status" != "$expected_status" ]; then
+    failure_reason="expected status $expected_status but got $status"
+  elif [[ "$body" != *"$expected_body_fragment"* ]]; then
+    failure_reason="response did not contain expected fragment: $expected_body_fragment"
+  else
+    passed="true"
+  fi
+
+  if [ "$passed" = "true" ]; then
+    PASS_COUNT=$((PASS_COUNT + 1))
+  else
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+  fi
+
+  {
+    echo "Test: $name"
+    echo "Path: $path"
+    echo "Method: POST multipart/form-data"
+    echo "Image path: $image_path"
+    echo "Expected status: $expected_status"
+    echo "Actual status: $status"
+    echo "Passed: $passed"
+    if [ -n "$failure_reason" ]; then
+      echo "Failure: $failure_reason"
+    fi
+    echo "Response:"
+    echo "$body"
+    echo
+  } >> "$OUTPUT_FILE"
+}
+
 preflight_check
 
 run_test "health endpoint responds" "/health" "200" "\"ok\":true"
@@ -186,6 +257,8 @@ run_post_test "search endpoint returns rice matches" "/api/search" '{"terms":["r
 run_post_test "search endpoint validates empty terms" "/api/search" '{"terms":[]}' "400" "Invalid query parameters"
 run_post_test "command endpoint returns rice search results" "/api/command" '{"message":"cheapest rice","intent":"find"}' "200" "\"results\""
 run_post_test "command endpoint validates missing message" "/api/command" '{"message":"","intent":"find"}' "400" "Invalid query parameters"
+run_post_test "receipt endpoint validates missing image" "/api/receipt" '{}' "400" "No image file provided"
+run_receipt_test "receipt endpoint returns OCR JSON" "/api/receipt" "$RECEIPT_IMAGE_PATH" "200" "\"items\""
 
 FINISHED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
