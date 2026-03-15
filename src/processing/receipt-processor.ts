@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { supabaseAdmin } from "../db/supabase-client.js";
-import { cacheDelete } from "../db/cache.js";
+import {
+  cacheDelete,
+  invalidateDashboardPriceCaches,
+} from "../lib/cache.js";
 import type { ReceiptData } from "../types/receipt.types.js";
 import { logError, logInfo } from "../utils/logger.js";
 
@@ -141,7 +144,8 @@ export async function processReceiptConfirm(
 
   // 6. Invalidate caches
   await cacheDelete("data:prices");
-  await cacheDelete(`user:${userId}`);
+  await cacheDelete(`dashboard:user:${userId}`);
+  await invalidateDashboardPriceCaches();
 
   logInfo("Receipt confirm: completed", { receiptId, userId, pointsAwarded: 100 });
 
