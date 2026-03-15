@@ -1,6 +1,7 @@
 node_modules
 dist
 .env
+env.yaml
 test-results/
 gas.jpeg
 pharmacy.jpeg

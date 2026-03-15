@@ -33,6 +33,7 @@ deploy:
 	  --platform managed \
 	  --allow-unauthenticated \
 	  --port 8080 \
+	  --env-vars-file env.yaml \
 	  --project $(PROJECT_ID)
 
 ## One shot: build → push → deploy
