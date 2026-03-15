@@ -5,7 +5,7 @@ import type { OCRUpload } from "../ocr/types.js";
 import { logError, logInfo } from "../utils/logger.js";
 
 const router = Router();
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const KNOWN_TYPES = ["receipt", "prescription", "gas_price", "shopping_list"];
 
 async function readRequestBody(req: NodeJS.ReadableStream): Promise<Buffer> {
@@ -17,7 +17,7 @@ async function readRequestBody(req: NodeJS.ReadableStream): Promise<Buffer> {
     totalBytes += buffer.length;
 
     if (totalBytes > MAX_UPLOAD_BYTES) {
-      throw new Error("Uploaded image exceeds 10 MB limit");
+      throw new Error("Uploaded image exceeds 5 MB limit");
     }
 
     chunks.push(buffer);
@@ -75,19 +75,38 @@ function parseImageUpload(contentType: string | undefined, body: Buffer): OCRUpl
 }
 
 router.post("/api/receipt", async (req, res) => {
-  const requestBody = await readRequestBody(req);
-  const upload = parseImageUpload(req.headers["content-type"], requestBody);
-  if (!upload || upload.buffer.length === 0) {
-    logInfo("Receipt OCR rejected before provider call", {
-      reason: "missing_image",
-      contentType: req.headers["content-type"] ?? null,
-      bodyBytes: requestBody.length,
-    });
-    res.status(400).json({ error: "No image file provided" });
-    return;
-  }
-
   try {
+    const contentLengthHeader = req.headers["content-length"];
+    const contentLength =
+      typeof contentLengthHeader === "string"
+        ? Number(contentLengthHeader)
+        : Array.isArray(contentLengthHeader)
+          ? Number(contentLengthHeader[0])
+          : NaN;
+
+    if (Number.isFinite(contentLength) && contentLength > MAX_UPLOAD_BYTES) {
+      logInfo("Receipt OCR rejected before reading body", {
+        reason: "content_length_exceeds_limit",
+        contentLength,
+        limitBytes: MAX_UPLOAD_BYTES,
+        contentType: req.headers["content-type"] ?? null,
+      });
+      res.status(413).json({ error: "Image exceeds 5 MB limit" });
+      return;
+    }
+
+    const requestBody = await readRequestBody(req);
+    const upload = parseImageUpload(req.headers["content-type"], requestBody);
+    if (!upload || upload.buffer.length === 0) {
+      logInfo("Receipt OCR rejected before provider call", {
+        reason: "missing_image",
+        contentType: req.headers["content-type"] ?? null,
+        bodyBytes: requestBody.length,
+      });
+      res.status(400).json({ error: "No image file provided" });
+      return;
+    }
+
     const ocrProvider = OCRFactory.getDefaultProvider();
     logInfo("Receipt OCR started", {
       provider: ocrProvider.getName(),
@@ -125,6 +144,15 @@ router.post("/api/receipt", async (req, res) => {
     });
     res.status(200).json(receiptData);
   } catch (error) {
+    if (error instanceof Error && error.message === "Uploaded image exceeds 5 MB limit") {
+      logInfo("Receipt OCR rejected before provider call", {
+        reason: "image_too_large",
+        contentType: req.headers["content-type"] ?? null,
+      });
+      res.status(413).json({ error: "Image exceeds 5 MB limit" });
+      return;
+    }
+
     logError("Receipt OCR failed", error, {
       path: "/api/receipt",
     });

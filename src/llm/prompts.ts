@@ -1,5 +1,6 @@
 import { buildProductPromptBlock } from "../database/in-memory-db.js";
 import type { Product } from "../database/in-memory-db.js";
+import { extractJsonObjectText, parseEmbeddedJson } from "../utils/json.js";
 import type { CommandAction, LLMMessage, LLMProvider } from "./types.js";
 
 export const RECEIPT_STRUCTURING_SYSTEM_PROMPT = `You are a data extraction engine for a Jamaican price intelligence app. Extract information from images and return strict JSON. Do NOT interpret or correct — extract exactly what appears.
@@ -156,17 +157,8 @@ export function createCommandMessages(
 }
 
 function parseCommandAction(raw: string): CommandAction {
-  const trimmed = raw.trim();
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = fenced?.[1]?.trim() ?? trimmed;
-  const startIndex = candidate.indexOf("{");
-  const endIndex = candidate.lastIndexOf("}");
-  const jsonPayload =
-    startIndex >= 0 && endIndex > startIndex
-      ? candidate.slice(startIndex, endIndex + 1)
-      : candidate;
-
-  const parsed = JSON.parse(jsonPayload) as Partial<CommandAction>;
+  const jsonPayload = extractJsonObjectText(raw);
+  const parsed = parseEmbeddedJson<Partial<CommandAction>>(raw);
 
   return {
     budget: typeof parsed.budget === "number" ? parsed.budget : null,

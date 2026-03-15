@@ -1,3 +1,8 @@
+import {
+  ANTHROPIC_API_URL,
+  ANTHROPIC_API_VERSION,
+  DEFAULT_ANTHROPIC_MODEL,
+} from "../config/constants.js";
 import type { ClaudeConfig, LLMMessage, LLMProvider } from "./types.js";
 
 export function makeClaudeProvider(config: ClaudeConfig = {}): LLMProvider {
@@ -5,7 +10,7 @@ export function makeClaudeProvider(config: ClaudeConfig = {}): LLMProvider {
   const model =
     config.model ??
     process.env.ANTHROPIC_MODEL ??
-    "claude-sonnet-4-20250514";
+    DEFAULT_ANTHROPIC_MODEL;
 
   if (!apiKey) {
     throw new Error("Missing ANTHROPIC_API_KEY");
@@ -30,12 +35,12 @@ export function makeClaudeProvider(config: ClaudeConfig = {}): LLMProvider {
       payload.system = system;
     }
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch(ANTHROPIC_API_URL, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
+        "anthropic-version": ANTHROPIC_API_VERSION,
       },
       body: JSON.stringify(payload),
     });
