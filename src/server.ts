@@ -3,7 +3,7 @@ import app from "./app.js";
 import { connectRedis, disconnectRedis, isRedisReady } from "./db/redis.js";
 import { logError, logInfo, logWarn } from "./utils/logger.js";
 
-const port = Number(process.env.PORT) || 3000;
+const port = Number(process.env.PORT) || 8000;
 
 async function startServer() {
   try {
