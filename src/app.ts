@@ -5,6 +5,7 @@ import { isRedisReady } from "./db/redis.js";
 import { logError, logInfo, logWarn } from "./utils/logger.js";
 import searchRouter from "./api/search.js";
 import commandRouter from "./api/command.js";
+import receiptRouter from "./api/receipt.js";
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.get("/health", (_req, res) => {
 
 app.use(searchRouter);
 app.use(commandRouter);
+app.use(receiptRouter);
 
 app.use(
   (
