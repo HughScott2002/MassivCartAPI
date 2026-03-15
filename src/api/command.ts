@@ -1,12 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
-import { getProducts } from "../db/data-access.js";
-import { cacheDelete } from "../db/cache.js";
+import { cacheDelete, withCache } from "../db/cache.js";
 import { supabase, supabaseAdmin } from "../db/supabase-client.js";
-import { getProvider } from "../llm/registry.js";
-import { makeCommandRunner } from "../llm/prompts.js";
 import { performSearch } from "../services/search-service.js";
 import { logError, logInfo } from "../utils/logger.js";
+import { commandQueue, commandQueueEvents } from "../queue/claude-queue.js";
+import type { CommandAction } from "../llm/types.js";
 
 const router = Router();
 
@@ -42,15 +41,17 @@ router.post("/api/command", async (req, res) => {
   const body = commandBodySchema.parse(req.body);
 
   try {
-    const products = await getProducts();
-    const runCommand = makeCommandRunner(getProvider());
-    const action = await runCommand(
-      body.message,
-      {
-        intent: body.intent,
-        budget: body.budget ?? "",
+    const { data: action } = await withCache<CommandAction>(
+      "nlp-command",
+      { message: body.message, intent: body.intent, budget: body.budget },
+      async () => {
+        const job = await commandQueue.add("run-command", {
+          message: body.message,
+          intent: body.intent,
+          budget: body.budget ?? "",
+        });
+        return job.waitUntilFinished(commandQueueEvents, 30_000);
       },
-      products,
     );
 
     await persistBudget(action.budget, body.userId);

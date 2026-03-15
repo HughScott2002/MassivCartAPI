@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { isRedisReady } from "./db/redis.js";
 import { logError, logInfo, logWarn } from "./utils/logger.js";
@@ -9,7 +10,17 @@ import receiptRouter from "./api/receipt.js";
 
 const app = express();
 
-app.use(cors());
+const claudeRateLimit = rateLimit({
+  windowMs: 60_000,
+  max: 10,
+  keyGenerator: (req) =>
+    (req.headers["x-user-id"] as string) || req.ip || "anon",
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: "Rate limit exceeded — try again in a minute" },
+});
+
+app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3000" }));
 app.use(express.json());
 app.use((req, res, next) => {
   const startedAt = Date.now();
@@ -38,6 +49,8 @@ app.get("/health", (_req, res) => {
 });
 
 app.use(searchRouter);
+app.use("/api/command", claudeRateLimit);
+app.use("/api/receipt", claudeRateLimit);
 app.use(commandRouter);
 app.use(receiptRouter);
 

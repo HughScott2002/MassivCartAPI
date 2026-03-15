@@ -1,6 +1,7 @@
 import "dotenv/config";
 import app from "./app.js";
 import { connectRedis, disconnectRedis, isRedisReady } from "./db/redis.js";
+import { closeQueue } from "./queue/claude-queue.js";
 import { logError, logInfo, logWarn } from "./utils/logger.js";
 
 const port = Number(process.env.PORT) || 8000;
@@ -26,6 +27,7 @@ async function startServer() {
     logInfo("Shutdown signal received");
     server.close(async () => {
       try {
+        await closeQueue();
         await disconnectRedis();
       } finally {
         process.exit(0);

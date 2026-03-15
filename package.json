@@ -23,9 +23,11 @@
   "homepage": "https://github.com/HughScott2002/MassivCartAPI#readme",
   "dependencies": {
     "@supabase/supabase-js": "^2.99.1",
+    "bullmq": "^5.71.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.3.1",
     "redis": "^5.11.0",
     "zod": "^4.3.6"
   },
