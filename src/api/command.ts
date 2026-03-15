@@ -38,7 +38,7 @@ async function persistBudget(budget: number | null, userId?: string): Promise<vo
     throw error;
   }
 
-  await cacheDelete(`user:${userId}`);
+  await cacheDelete(`dashboard:user:${userId}`);
 }
 
 router.post("/api/command", async (req, res) => {

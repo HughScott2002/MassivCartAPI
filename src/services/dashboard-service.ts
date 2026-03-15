@@ -1,6 +1,8 @@
 import { getPrices, getProducts, getStores } from "../db/data-access.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
-import { supabase } from "../db/supabase-client.js";
+import { supabase, supabaseAdmin } from "../db/supabase-client.js";
+
+const db = supabaseAdmin ?? supabase;
 import type { Database } from "../types/database.types.js";
 
 type UserRow = Database["public"]["Tables"]["users"]["Row"];
@@ -127,7 +129,7 @@ async function getUser(userId: string): Promise<UserRow | null> {
     return cachedUser;
   }
 
-  const { data: user, error } = await supabase
+  const { data: user, error } = await db
     .from("users")
     .select("*")
     .eq("id", userId)
@@ -150,11 +152,11 @@ async function getReceiptStats(
   const weekStartIso = getWeekStartIso(new Date());
 
   const [allReceiptsResult, weeklyReceiptsResult] = await Promise.all([
-    supabase
+    db
       .from("receipts")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId),
-    supabase
+    db
       .from("receipts")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)

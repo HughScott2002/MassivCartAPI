@@ -13,11 +13,11 @@ const requireFromRoot = createRequire(path.join(rootDir, "package.json"));
 
 const appModulePath = requireFromRoot.resolve("./src/app.ts");
 const dashboardServiceModulePath = requireFromRoot.resolve("./src/services/dashboard-service.ts");
-const cacheModulePath = requireFromRoot.resolve("./src/db/cache.ts");
+const cacheModulePath = requireFromRoot.resolve("./src/lib/cache.ts");
 const supabaseModulePath = requireFromRoot.resolve("./src/db/supabase-client.ts");
-const queueModulePath = requireFromRoot.resolve("./src/queue/claude-queue.ts");
-const redisModulePath = requireFromRoot.resolve("./src/db/redis.ts");
 const loggerModulePath = requireFromRoot.resolve("./src/utils/logger.ts");
+const registryModulePath = requireFromRoot.resolve("./src/llm/registry.ts");
+const promptsModulePath = requireFromRoot.resolve("./src/llm/prompts.ts");
 
 let storePricesError: Error | null = null;
 let storeProductsPayload = [
@@ -59,20 +59,9 @@ function installModuleStub(modulePath: string, exports: unknown) {
 }
 
 installModuleStub(cacheModulePath, {
-  async withCache<T>(
-    _namespace: string,
-    _payload: unknown,
-    loader: () => Promise<T>,
-    ttlSeconds = 300,
-  ) {
-    return {
-      data: await loader(),
-      cacheHit: false,
-      key: "dashboard-store-prices-test-cache-key",
-      ttlSeconds,
-    };
-  },
-  async cacheDelete() {},
+  async cacheGet<T>(_key: string): Promise<T | null> { return null },
+  async cacheSet(): Promise<void> {},
+  async cacheDelete(): Promise<void> {},
 });
 
 installModuleStub(supabaseModulePath, {
@@ -108,27 +97,20 @@ installModuleStub(dashboardServiceModulePath, {
   },
 });
 
-installModuleStub(queueModulePath, {
-  commandQueue: {
-    async add() {
-      throw new Error(
-        "Command queue should not be called in /api/dashboard/stores/:storeId/prices tests",
-      );
-    },
-  },
-  commandQueueEvents: {},
-});
-
-installModuleStub(redisModulePath, {
-  isRedisReady() {
-    return false;
-  },
-});
-
 installModuleStub(loggerModulePath, {
   logError() {},
   logInfo() {},
   logWarn() {},
+});
+
+installModuleStub(registryModulePath, {
+  getProvider() { return {}; },
+});
+
+installModuleStub(promptsModulePath, {
+  makeCommandRunner(_provider: unknown) {
+    return async function() { throw new Error("Command should not be called in store-prices tests"); };
+  },
 });
 
 const app = requireFromRoot(appModulePath).default;
@@ -138,9 +120,9 @@ after(() => {
   delete requireFromRoot.cache[dashboardServiceModulePath];
   delete requireFromRoot.cache[cacheModulePath];
   delete requireFromRoot.cache[supabaseModulePath];
-  delete requireFromRoot.cache[queueModulePath];
-  delete requireFromRoot.cache[redisModulePath];
   delete requireFromRoot.cache[loggerModulePath];
+  delete requireFromRoot.cache[registryModulePath];
+  delete requireFromRoot.cache[promptsModulePath];
 });
 
 beforeEach(() => {

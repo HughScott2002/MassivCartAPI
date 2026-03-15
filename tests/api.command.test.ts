@@ -12,10 +12,12 @@ const rootDir = path.resolve(__dirname, "..");
 const requireFromRoot = createRequire(path.join(rootDir, "package.json"));
 
 const appModulePath = requireFromRoot.resolve("./src/app.ts");
-const cacheModulePath = requireFromRoot.resolve("./src/db/cache.ts");
+const cacheModulePath = requireFromRoot.resolve("./src/lib/cache.ts");
 const supabaseModulePath = requireFromRoot.resolve("./src/db/supabase-client.ts");
 const searchServiceModulePath = requireFromRoot.resolve("./src/services/search-service.ts");
-const queueModulePath = requireFromRoot.resolve("./src/queue/claude-queue.ts");
+const registryModulePath = requireFromRoot.resolve("./src/llm/registry.ts");
+const promptsModulePath = requireFromRoot.resolve("./src/llm/prompts.ts");
+const dataAccessModulePath = requireFromRoot.resolve("./src/db/data-access.ts");
 const loggerModulePath = requireFromRoot.resolve("./src/utils/logger.ts");
 
 type CommandAction = {
@@ -58,9 +60,8 @@ let nextAction: CommandAction = {
   search_terms: null,
   text: "No action",
 };
-let queueError: Error | null = null;
+let commandError: Error | null = null;
 let searchResults: SearchResult[] = [];
-let queueAddCalls: Array<{ name: string; payload: Record<string, unknown> }> = [];
 let searchCalls: Array<Record<string, unknown>> = [];
 let updateCalls: UpdateCall[] = [];
 let cacheDeleteCalls: string[] = [];
@@ -99,20 +100,9 @@ function makeSupabaseClient(client: "admin" | "anon") {
 }
 
 installModuleStub(cacheModulePath, {
-  async withCache<T>(
-    _namespace: string,
-    _payload: unknown,
-    loader: () => Promise<T>,
-    ttlSeconds = 300,
-  ) {
-    return {
-      data: await loader(),
-      cacheHit: false,
-      key: "test-cache-key",
-      ttlSeconds,
-    };
-  },
-  async cacheDelete(key: string) {
+  async cacheGet<T>(_key: string): Promise<T | null> { return null; },
+  async cacheSet(): Promise<void> {},
+  async cacheDelete(key: string): Promise<void> {
     cacheDeleteCalls.push(key);
   },
 });
@@ -129,27 +119,21 @@ installModuleStub(searchServiceModulePath, {
   },
 });
 
-installModuleStub(queueModulePath, {
-  commandQueue: {
-    async add(name: string, payload: Record<string, unknown>) {
-      queueAddCalls.push({ name, payload });
+installModuleStub(registryModulePath, {
+  getProvider() { return {}; },
+});
 
-      if (queueError) {
-        throw queueError;
-      }
-
-      return {
-        async waitUntilFinished() {
-          if (queueError) {
-            throw queueError;
-          }
-
-          return nextAction;
-        },
-      };
-    },
+installModuleStub(promptsModulePath, {
+  makeCommandRunner(_provider: unknown) {
+    return async function(_message: string, _opts: unknown, _products: unknown[]) {
+      if (commandError) throw commandError;
+      return nextAction;
+    };
   },
-  commandQueueEvents: {},
+});
+
+installModuleStub(dataAccessModulePath, {
+  async getProducts() { return []; },
 });
 
 installModuleStub(loggerModulePath, {
@@ -167,9 +151,8 @@ beforeEach(() => {
     search_terms: null,
     text: "No action",
   };
-  queueError = null;
+  commandError = null;
   searchResults = [];
-  queueAddCalls = [];
   searchCalls = [];
   updateCalls = [];
   cacheDeleteCalls = [];
@@ -181,7 +164,9 @@ after(() => {
   delete requireFromRoot.cache[cacheModulePath];
   delete requireFromRoot.cache[supabaseModulePath];
   delete requireFromRoot.cache[searchServiceModulePath];
-  delete requireFromRoot.cache[queueModulePath];
+  delete requireFromRoot.cache[registryModulePath];
+  delete requireFromRoot.cache[promptsModulePath];
+  delete requireFromRoot.cache[dataAccessModulePath];
   delete requireFromRoot.cache[loggerModulePath];
 });
 
@@ -269,7 +254,6 @@ test("POST /api/command returns 400 when message is missing", async () => {
   assert.equal(response.body.ok, false);
   assert.equal(response.body.error, "Invalid query parameters");
   assert.ok(response.body.details?.fieldErrors?.message);
-  assert.equal(queueAddCalls.length, 0);
 });
 
 test('POST /api/command handles "cheapest rice" with find intent', async () => {
@@ -319,16 +303,6 @@ test('POST /api/command handles "cheapest rice" with find intent', async () => {
     text: "Searching for rice prices across stores",
     results: searchResults,
   });
-  assert.deepEqual(queueAddCalls, [
-    {
-      name: "run-command",
-      payload: {
-        message: "cheapest rice",
-        intent: "find",
-        budget: "",
-      },
-    },
-  ]);
   assert.deepEqual(searchCalls, [
     {
       terms: ["rice"],
@@ -435,7 +409,7 @@ test('POST /api/command handles "set budget to 4000 and find rice" and persists 
 });
 
 test("POST /api/command returns 502 when the command provider fails", async () => {
-  queueError = new Error("LLM unavailable");
+  commandError = new Error("LLM unavailable");
 
   const response = await requestJson("/api/command", {
     message: "cheapest rice",

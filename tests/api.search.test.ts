@@ -12,12 +12,12 @@ const rootDir = path.resolve(__dirname, "..");
 const requireFromRoot = createRequire(path.join(rootDir, "package.json"));
 
 const appModulePath = requireFromRoot.resolve("./src/app.ts");
-const cacheModulePath = requireFromRoot.resolve("./src/db/cache.ts");
+const cacheModulePath = requireFromRoot.resolve("./src/lib/cache.ts");
 const supabaseModulePath = requireFromRoot.resolve("./src/db/supabase-client.ts");
 const dataAccessModulePath = requireFromRoot.resolve("./src/db/data-access.ts");
-const queueModulePath = requireFromRoot.resolve("./src/queue/claude-queue.ts");
-const redisModulePath = requireFromRoot.resolve("./src/db/redis.ts");
 const loggerModulePath = requireFromRoot.resolve("./src/utils/logger.ts");
+const registryModulePath = requireFromRoot.resolve("./src/llm/registry.ts");
+const promptsModulePath = requireFromRoot.resolve("./src/llm/prompts.ts");
 
 type Store = {
   id: number;
@@ -55,7 +55,7 @@ let dataAccessCalls = {
   getProducts: 0,
   getPrices: 0,
 };
-let cacheCalls: Array<{ namespace: string; payload: unknown }> = [];
+let cacheSetKeys: string[] = [];
 
 function installModuleStub(modulePath: string, exports: unknown) {
   requireFromRoot.cache[modulePath] = {
@@ -73,21 +73,11 @@ function installModuleStub(modulePath: string, exports: unknown) {
 }
 
 installModuleStub(cacheModulePath, {
-  async withCache<T>(
-    namespace: string,
-    payload: unknown,
-    loader: () => Promise<T>,
-    ttlSeconds = 300,
-  ) {
-    cacheCalls.push({ namespace, payload });
-    return {
-      data: await loader(),
-      cacheHit: false,
-      key: `${namespace}:test`,
-      ttlSeconds,
-    };
+  async cacheGet<T>(_key: string): Promise<T | null> { return null; },
+  async cacheSet(key: string): Promise<void> {
+    cacheSetKeys.push(key);
   },
-  async cacheDelete() {},
+  async cacheDelete(): Promise<void> {},
 });
 
 installModuleStub(supabaseModulePath, {
@@ -114,25 +104,21 @@ installModuleStub(dataAccessModulePath, {
   },
 });
 
-installModuleStub(queueModulePath, {
-  commandQueue: {
-    async add() {
-      throw new Error("Command queue should not be called in /api/search tests");
-    },
-  },
-  commandQueueEvents: {},
-});
-
-installModuleStub(redisModulePath, {
-  isRedisReady() {
-    return false;
-  },
-});
 
 installModuleStub(loggerModulePath, {
   logError() {},
   logInfo() {},
   logWarn() {},
+});
+
+installModuleStub(registryModulePath, {
+  getProvider() { return {}; },
+});
+
+installModuleStub(promptsModulePath, {
+  makeCommandRunner(_provider: unknown) {
+    return async function() { throw new Error("Command should not be called in search tests"); };
+  },
 });
 
 const app = requireFromRoot(appModulePath).default;
@@ -218,7 +204,7 @@ beforeEach(() => {
     getProducts: 0,
     getPrices: 0,
   };
-  cacheCalls = [];
+  cacheSetKeys = [];
 });
 
 after(() => {
@@ -226,9 +212,9 @@ after(() => {
   delete requireFromRoot.cache[cacheModulePath];
   delete requireFromRoot.cache[supabaseModulePath];
   delete requireFromRoot.cache[dataAccessModulePath];
-  delete requireFromRoot.cache[queueModulePath];
-  delete requireFromRoot.cache[redisModulePath];
   delete requireFromRoot.cache[loggerModulePath];
+  delete requireFromRoot.cache[registryModulePath];
+  delete requireFromRoot.cache[promptsModulePath];
 });
 
 class MockSocket extends Writable {
@@ -388,14 +374,6 @@ test("POST /api/search passes savingsMode and user coordinates through to the se
   assert.equal(response.body[0].prices.length, 1);
   assert.equal(response.body[0].prices[0].store_name, "Hi-Lo");
   assert.equal(typeof response.body[0].prices[0].distance_km, "number");
-  assert.equal(cacheCalls.length, 1);
-  assert.deepEqual(cacheCalls[0], {
-    namespace: "search",
-    payload: {
-      terms: ["rice"],
-      savingsMode: 0,
-      userLat: 18.0061,
-      userLng: -76.7466,
-    },
-  });
+  assert.equal(cacheSetKeys.length, 1);
+  assert.equal(cacheSetKeys[0], "search:rice:0:18.0061:-76.7466");
 });
