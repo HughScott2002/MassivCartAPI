@@ -7,6 +7,7 @@ import { getProvider } from "../llm/registry.js";
 import { makeCommandRunner } from "../llm/prompts.js";
 import { performSearch } from "../services/search-service.js";
 import { logError, logInfo } from "../utils/logger.js";
+import { normalizeQuery } from "../utils/normalize.js";
 import type { CommandAction } from "../llm/types.js";
 
 const router = Router();
@@ -44,10 +45,11 @@ router.post("/api/command", async (req, res) => {
   const body = commandBodySchema.parse(req.body);
 
   try {
+    const normalized = normalizeQuery(body.message);
     const cacheKey = [
       "nlp-command",
       body.intent,
-      body.message.trim(),
+      normalized,
       body.budget ?? "",
     ].join(":");
     let action = await cacheGet<CommandAction>(cacheKey);
@@ -62,7 +64,7 @@ router.post("/api/command", async (req, res) => {
         },
         products,
       );
-      await cacheSet(cacheKey, action, 300);
+      await cacheSet(cacheKey, action, 1800);
     }
 
     await persistBudget(action.budget, body.userId);
