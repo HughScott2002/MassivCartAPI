@@ -1,20 +1,22 @@
+import {
+  ANTHROPIC_API_URL,
+  ANTHROPIC_API_VERSION,
+  DEFAULT_ANTHROPIC_MODEL,
+} from "../config/constants.js";
 import { RECEIPT_STRUCTURING_SYSTEM_PROMPT } from "../llm/prompts.js";
 import type { ReceiptData } from "../types/receipt.types.js";
+import { parseEmbeddedJson } from "../utils/json.js";
 import { logInfo } from "../utils/logger.js";
 import type { IOCRProvider, OCRUpload, SupportedMediaType } from "./types.js";
 
-const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514";
+const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? DEFAULT_ANTHROPIC_MODEL;
 
 function parseClaudeJson(raw: string): ReceiptData {
-  const trimmed = raw.trim();
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = fenced?.[1]?.trim() ?? trimmed;
-  const start = candidate.indexOf("{");
-  const end = candidate.lastIndexOf("}");
-  const jsonPayload =
-    start >= 0 && end > start ? candidate.slice(start, end + 1) : candidate;
-
-  const parsed = JSON.parse(jsonPayload) as Partial<ReceiptData> & {
+  const parsed = parseEmbeddedJson<
+    Partial<ReceiptData> & {
+      type?: ReceiptData["imageType"];
+    }
+  >(raw) as Partial<ReceiptData> & {
     type?: ReceiptData["imageType"];
   };
 
@@ -52,12 +54,12 @@ export class ClaudeVisionOCRProvider implements IOCRProvider {
       throw new Error("Missing ANTHROPIC_API_KEY");
     }
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch(ANTHROPIC_API_URL, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
+        "anthropic-version": ANTHROPIC_API_VERSION,
       },
       body: JSON.stringify({
         model: DEFAULT_MODEL,

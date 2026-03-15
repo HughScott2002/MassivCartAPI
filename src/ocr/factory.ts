@@ -13,7 +13,7 @@ export class OCRFactory {
   }
 
   static getDefaultProvider(): IOCRProvider {
-    const provider = process.env.OCR_PROVIDER;
+    const provider = process.env.VISION_PROVIDER ?? process.env.OCR_PROVIDER;
     if (provider && provider !== "claude") {
       throw new Error(
         `Unsupported OCR provider "${provider}". MASSIVCartAPI receipt OCR only supports "claude".`,
