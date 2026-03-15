@@ -3,6 +3,7 @@ import { OCRFactory } from "../ocr/index.js";
 import { normalizeMediaType } from "../ocr/claude-ocr.js";
 import type { OCRUpload } from "../ocr/types.js";
 import { logError, logInfo } from "../utils/logger.js";
+import { processReceiptConfirm } from "../processing/receipt-processor.js";
 
 const router = Router();
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -158,6 +159,33 @@ router.post("/api/receipt", async (req, res) => {
     });
 
     res.status(500).json({ error: "OCR processing failed" });
+  }
+});
+
+router.post("/api/receipt/confirm", async (req, res) => {
+  try {
+    const { receiptData, userId, category, storeAddress } = req.body as {
+      receiptData: unknown;
+      userId: string;
+      category: string;
+      storeAddress?: string | null;
+    };
+
+    if (!receiptData || !userId || !category) {
+      res.status(400).json({ error: "receiptData, userId, and category are required" });
+      return;
+    }
+
+    const result = await processReceiptConfirm(
+      receiptData as Parameters<typeof processReceiptConfirm>[0],
+      userId,
+      storeAddress,
+      category,
+    );
+    res.json(result);
+  } catch (error) {
+    logError("Receipt confirm failed", error, { path: "/api/receipt/confirm" });
+    res.status(500).json({ error: "Failed to confirm receipt" });
   }
 });
 

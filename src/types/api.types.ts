@@ -14,6 +14,8 @@ export interface SearchResultPrice {
   confidence_score: number | null;
   date_recorded: string | null;
   distance_km: number | null;
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface SearchResult {

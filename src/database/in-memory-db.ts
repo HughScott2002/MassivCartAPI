@@ -187,6 +187,8 @@ export function searchProducts(
           confidence_score: row.price.confidence_score,
           date_recorded: row.price.date_recorded,
           distance_km: row.distance_km,
+          lat: row.store.latitude ?? null,
+          lng: row.store.longitude ?? null,
         })),
       };
     })

@@ -13,8 +13,6 @@ const app = express();
 const claudeRateLimit = rateLimit({
   windowMs: 60_000,
   max: 10,
-  keyGenerator: (req) =>
-    (req.headers["x-user-id"] as string) || req.ip || "anon",
   standardHeaders: true,
   legacyHeaders: false,
   message: { ok: false, error: "Rate limit exceeded — try again in a minute" },

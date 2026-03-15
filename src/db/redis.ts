@@ -27,8 +27,12 @@ function getClient(): RedisClientType {
     },
   });
 
+  let redisErrorLogged = false;
   redisClient.on("error", (error) => {
-    logError("Redis client error", error, { url: getRedisUrl() });
+    if (!redisErrorLogged) {
+      redisErrorLogged = true;
+      logError("Redis client error", error, { url: getRedisUrl() });
+    }
   });
 
   redisClient.on("reconnecting", () => {
