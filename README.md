@@ -1,4 +1,5 @@
-<img width="1280" height="640" alt="MASSIV CART AI — Crowdsourced Grocery Price Intelligence for Jamaica" src="https://github.com/user-attachments/assets/e22ddae2-8e3a-4766-8a0c-6e6ba21ecd5a" />
+<img width="1280" height="320" alt="MASSIV CART AI = Realtime price intelligence for almost anything near you" src="https://github.com/user-attachments/assets/19383b63-9c9a-44eb-a9a8-cbfc17d5ccb8" />
+
 
 <p align="center">
   <strong>Realtime price intelligence for almost anything near you.</strong><br/>
