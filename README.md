@@ -197,10 +197,12 @@ massiv-cart-ai/
 
 ## Built With
 
-**Massiv Cart AI** was built in 24 hours at the [Intellibus Hackathon](https://intellibus.com) (March 2025).
+**Massiv Cart AI** was built in 24 hours at the [Intellibus Hackathon](https://intellibus.com) (March 2026).
 
 ---
-
+ 
 ## License
-
-MIT © Massiv Cart AI
+ 
+This project is licensed under the **MIT No Commercial License (MIT-NC)** — free to view, study, and fork for personal and educational use. Commercial use is not permitted. See [LICENSE](LICENSE) for details.
+ 
+© 2026 Massiv Cart
