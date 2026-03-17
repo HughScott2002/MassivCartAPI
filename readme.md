@@ -1,6 +1,6 @@
-# MassivCartAPI
-
+<img width="1280" height="640" alt="MASSIV CART AI" src="https://github.com/user-attachments/assets/e22ddae2-8e3a-4766-8a0c-6e6ba21ecd5a" />
 ## Docker setup
+
 
 This project now includes:
 
