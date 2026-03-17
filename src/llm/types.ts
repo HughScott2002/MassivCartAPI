@@ -8,6 +8,7 @@ export type LLMProvider = (messages: LLMMessage[]) => Promise<string>;
 export interface ClaudeConfig {
   apiKey?: string;
   model?: string;
+  maxTokens?: number;
 }
 
 export interface CommandAction {

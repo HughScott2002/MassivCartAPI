@@ -18,6 +18,7 @@ const searchBodySchema = z.object({
   savingsMode: z.coerce.number().int().min(0).max(3).optional(),
   userLat: z.coerce.number().min(-90).max(90).optional(),
   userLng: z.coerce.number().min(-180).max(180).optional(),
+  storeId: z.coerce.number().int().positive().optional(),
 });
 
 function buildSearchCacheKey(body: SearchRequestBody): string {
@@ -25,8 +26,9 @@ function buildSearchCacheKey(body: SearchRequestBody): string {
   const savingsMode = body.savingsMode ?? 2;
   const userLat = body.userLat ?? "null";
   const userLng = body.userLng ?? "null";
+  const storeId = body.storeId ?? "null";
 
-  return `search:${terms}:${savingsMode}:${userLat}:${userLng}`;
+  return `search:${terms}:${savingsMode}:${userLat}:${userLng}:${storeId}`;
 }
 
 router.get("/products", async (req, res, next) => {
@@ -104,11 +106,11 @@ router.post("/api/search", async (req, res, next) => {
       return;
     }
 
-    const data = await performSearch(body);
+    const { results, queriedStore } = await performSearch(body);
 
-    await cacheSet(cacheKey, data, 120);
+    await cacheSet(cacheKey, results, 120);
 
-    res.status(200).json(data);
+    res.status(200).json(results);
 
     logInfo("Search completed", {
       termCount: body.terms.length,
@@ -119,7 +121,8 @@ router.post("/api/search", async (req, res, next) => {
       cacheHit: false,
       cacheTtlSeconds: 120,
       cacheProvider: "upstash",
-      resultCount: data.length,
+      resultCount: results.length,
+      ...(queriedStore ? { storeName: queriedStore.name, storeId: queriedStore.id } : {}),
     });
   } catch (error) {
     next(error);

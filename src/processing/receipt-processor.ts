@@ -100,23 +100,33 @@ export async function processReceiptConfirm(
           store_id: storeId,
           price: item.price,
           date_recorded: receiptData.date ?? null,
-          confidence_score: 0.8,
           currency: receiptData.currency ?? "JMD",
         });
       }
     }
   } else if (category === "prescription") {
-    for (const item of receiptData.items) {
-      await supabaseAdmin.from("prescriptions").insert({
+    const { data: rxRow, error: rxError } = await supabaseAdmin
+      .from("prescriptions")
+      .insert({
         user_id: userId,
         receipt_id: receiptId,
         store_id: storeId,
-        medication_name: item.name,
-        dosage: item.dosage ?? null,
-        price: item.price > 0 ? item.price : null,
-        date_prescribed: receiptData.date ?? null,
+        patient_name: (receiptData as { patient?: string | null }).patient ?? null,
         prescriber: receiptData.prescriber ?? null,
-      } as never);
+        prescription_date: receiptData.date ?? null,
+      } as never)
+      .select("id")
+      .single();
+
+    if (!rxError && rxRow) {
+      await supabaseAdmin.from("prescription_items").insert(
+        receiptData.items.map((item) => ({
+          prescription_id: (rxRow as { id: number }).id,
+          drug_name: item.name,
+          dosage: (item as { dosage?: string | null }).dosage ?? null,
+          quantity: (item as { quantity?: number | null }).quantity ?? 1,
+        })) as never[],
+      );
     }
   }
   // shopping_list → no price inserts

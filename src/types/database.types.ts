@@ -316,6 +316,7 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           name: string
+          neighbourhood: string | null
           parish: string | null
           place_id: string | null
           store_type: string | null
@@ -327,6 +328,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           name: string
+          neighbourhood?: string | null
           parish?: string | null
           place_id?: string | null
           store_type?: string | null
@@ -338,6 +340,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           name?: string
+          neighbourhood?: string | null
           parish?: string | null
           place_id?: string | null
           store_type?: string | null

@@ -7,6 +7,7 @@ import searchRouter from "./api/search.js";
 import commandRouter from "./api/command.js";
 import dashboardRouter from "./api/dashboard.js";
 import receiptRouter from "./api/receipt.js";
+import adminRouter from "./api/admin.js";
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use("/api/command", claudeRateLimit);
 app.use("/api/receipt", claudeRateLimit);
 app.use(commandRouter);
 app.use(receiptRouter);
+app.use(adminRouter);
 
 app.use(
   (

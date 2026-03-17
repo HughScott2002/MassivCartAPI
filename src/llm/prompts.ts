@@ -1,5 +1,5 @@
-import { buildProductPromptBlock } from "../database/in-memory-db.js";
-import type { Product } from "../database/in-memory-db.js";
+import { buildProductPromptBlock } from "../database/product-search.js";
+import type { Product } from "../database/product-search.js";
 import { extractJsonObjectText, parseEmbeddedJson } from "../utils/json.js";
 import type { CommandAction, LLMMessage, LLMProvider } from "./types.js";
 

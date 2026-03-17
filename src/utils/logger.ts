@@ -1,6 +1,16 @@
+import chalk from "chalk";
+
 type LogLevel = "INFO" | "WARN" | "ERROR";
 
 type LogContext = Record<string, unknown>;
+
+const IS_TTY = process.stdout.isTTY && process.env.NODE_ENV === "development";
+
+const LEVEL_COLOR: Record<LogLevel, (s: string) => string> = {
+  INFO: chalk.green,
+  WARN: chalk.yellow,
+  ERROR: chalk.red,
+};
 
 function serializeError(error: unknown): LogContext {
   if (!(error instanceof Error)) {
@@ -15,6 +25,17 @@ function serializeError(error: unknown): LogContext {
 }
 
 function writeLog(level: LogLevel, message: string, context?: LogContext): void {
+  if (IS_TTY) {
+    const time = chalk.dim(new Date().toISOString());
+    const lvl = LEVEL_COLOR[level](level.padEnd(5));
+    const ctx = context ? " " + chalk.dim(JSON.stringify(context)) : "";
+    const line = `${time} ${lvl} ${message}${ctx}`;
+    if (level === "ERROR") console.error(line);
+    else if (level === "WARN") console.warn(line);
+    else console.log(line);
+    return;
+  }
+
   const entry = {
     timestamp: new Date().toISOString(),
     level,

@@ -1,4 +1,4 @@
-import type { Price, Product, Store } from "../database/in-memory-db.js";
+import type { Price, Product, Store } from "../database/product-search.js";
 import { supabase } from "./supabase-client.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
 
@@ -35,7 +35,8 @@ export async function getProducts(): Promise<Product[]> {
   const { data: products, error } = await supabase
     .from("products")
     .select("id, canonical_name, category, unit_type, aliases")
-    .order("canonical_name", { ascending: true });
+    .order("canonical_name", { ascending: true })
+    .range(0, 9999);
 
   if (error) {
     throw error;
@@ -70,4 +71,25 @@ export async function getPrices(): Promise<Price[]> {
   );
   await cacheSet(cacheKey, result, 300);
   return result;
+}
+
+export async function getPricesForProducts(productIds: number[]): Promise<Price[]> {
+  if (productIds.length === 0) return [];
+
+  const { data: prices, error } = await supabase
+    .from("prices")
+    .select(
+      "id, product_id, store_id, price, unit_price, confidence_score, date_recorded, created_at, currency, is_synthetic",
+    )
+    .in("product_id", productIds)
+    .range(0, 19999);
+
+  if (error) {
+    throw error;
+  }
+
+  return (prices ?? []).filter(
+    (price): price is Price =>
+      price.product_id != null && price.store_id != null,
+  );
 }

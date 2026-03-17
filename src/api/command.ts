@@ -79,7 +79,7 @@ router.post("/api/command", async (req, res) => {
           : [];
 
     const effectiveSavingsMode = action.savings_mode ?? body.savingsMode;
-    const results =
+    const { results } =
       searchTerms.length > 0
         ? await performSearch({
             terms: searchTerms,
@@ -87,7 +87,7 @@ router.post("/api/command", async (req, res) => {
             userLat: body.userLat,
             userLng: body.userLng,
           })
-        : [];
+        : { results: [] as import("../types/api.types.js").SearchResult[] };
 
     const response = {
       ...action,

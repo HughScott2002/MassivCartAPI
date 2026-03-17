@@ -8,6 +8,7 @@ import { normalizeMediaType } from "../ocr/claude-ocr.js";
 import type { OCRUpload } from "../ocr/types.js";
 import { logError, logInfo } from "../utils/logger.js";
 import { processReceiptConfirm } from "../processing/receipt-processor.js";
+import { supabase } from "../db/supabase-client.js";
 
 const router = Router();
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -91,6 +92,26 @@ function parseImageUpload(contentType: string | undefined, body: Buffer): OCRUpl
   return null;
 }
 
+async function lookupDrugPrice(drugName: string): Promise<number> {
+  const firstWord = drugName.trim().split(/\s+/)[0] ?? drugName;
+  const { data } = await supabase
+    .from("products")
+    .select("typical_unit_price")
+    .ilike("canonical_name", `%${firstWord}%`)
+    .not("typical_unit_price", "is", null)
+    .limit(1)
+    .single();
+
+  if (data && (data as { typical_unit_price?: number | null }).typical_unit_price) {
+    return (data as { typical_unit_price: number }).typical_unit_price;
+  }
+
+  // Deterministic random fallback: JMD 150–2500, rounded to nearest 5
+  let h = 0;
+  for (const c of drugName.toLowerCase()) h = (Math.imul(31, h) + c.charCodeAt(0)) | 0;
+  return Math.round((150 + (Math.abs(h) % 1000) * 2.35) / 5) * 5;
+}
+
 router.post("/api/receipt", async (req, res) => {
   try {
     const contentLengthHeader = req.headers["content-length"];
@@ -159,6 +180,15 @@ router.post("/api/receipt", async (req, res) => {
       store: receiptData.store ?? null,
       total: receiptData.total ?? null,
     });
+
+    if (receiptData.imageType === "prescription") {
+      receiptData.items = await Promise.all(
+        receiptData.items.map(async (item) => ({
+          ...item,
+          price: item.price > 0 ? item.price : await lookupDrugPrice(item.name),
+        })),
+      );
+    }
 
     const userId = getRequestUserId(req);
     if (userId) {

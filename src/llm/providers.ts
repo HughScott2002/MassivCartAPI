@@ -27,7 +27,7 @@ export function makeClaudeProvider(config: ClaudeConfig = {}): LLMProvider {
 
     const payload: Record<string, unknown> = {
       model,
-      max_tokens: 1024,
+      max_tokens: config.maxTokens ?? 1024,
       messages: userMessages,
     };
 
