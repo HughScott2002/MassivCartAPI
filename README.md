@@ -24,6 +24,7 @@
 </p>
 
 ---
+<img width="1720" height="1307" alt="image" src="https://github.com/user-attachments/assets/8a0a89e9-f073-4e4a-86c2-293d3477a257" />
 
 ## The Problem
 
