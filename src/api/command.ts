@@ -9,9 +9,11 @@ import { performSearch } from "../services/search-service.js";
 import { logError, logInfo } from "../utils/logger.js";
 import { normalizeQuery } from "../utils/normalize.js";
 import type { CommandAction } from "../llm/types.js";
+import { parseCommand } from "../utils/parse-command.js";
 
 const router = Router();
-const runCommand = makeCommandRunner(getProvider());
+const USE_LLM_COMMAND = process.env.COMMAND_LLM === "true";
+const llmRunner = USE_LLM_COMMAND ? makeCommandRunner(getProvider()) : null;
 
 const commandBodySchema = z.object({
   message: z.string().trim().min(1),
@@ -52,18 +54,22 @@ router.post("/api/command", async (req, res) => {
       normalized,
       body.budget ?? "",
     ].join(":");
-    let action = await cacheGet<CommandAction>(cacheKey);
+    const cached = await cacheGet<CommandAction>(cacheKey);
+    let action: CommandAction;
 
-    if (!action) {
-      const products = await getProducts();
-      action = await runCommand(
-        body.message,
-        {
-          intent: body.intent,
-          budget: body.budget ?? "",
-        },
-        products,
-      );
+    if (cached) {
+      action = cached;
+    } else {
+      if (llmRunner) {
+        const products = await getProducts();
+        action = await llmRunner(
+          body.message,
+          { intent: body.intent, budget: body.budget ?? "" },
+          products,
+        );
+      } else {
+        action = parseCommand(body.message);
+      }
       await cacheSet(cacheKey, action, 1800);
     }
 
@@ -101,6 +107,7 @@ router.post("/api/command", async (req, res) => {
     logInfo("Command completed", {
       intent: body.intent,
       message: body.message,
+      parser: llmRunner ? "llm" : "programmatic",
       savingsMode: effectiveSavingsMode ?? null,
       resultCount: results.length,
       searchTerms,
